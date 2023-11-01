@@ -23,8 +23,8 @@
 namespace cnpy {
 
     struct NpyArray {
-        NpyArray(const std::vector<size_t>& _shape, size_t _word_size, bool _fortran_order) :
-            shape(_shape), word_size(_word_size), fortran_order(_fortran_order)
+        NpyArray(const std::vector<size_t>& _shape, size_t _word_size, bool _fortran_order, char _dtype = 'f') :
+            shape(_shape), word_size(_word_size), fortran_order(_fortran_order), dtype(_dtype)
         {
             num_vals = 1;
             for(size_t i = 0;i < shape.size();i++) num_vals *= shape[i];
@@ -59,6 +59,8 @@ namespace cnpy {
         size_t word_size;
         bool fortran_order;
         size_t num_vals;
+        /// i (int) u (uint) f (float) b (bool) c (complex)
+        char dtype;
     };
 
     using npz_t = std::map<std::string, NpyArray>;
@@ -66,8 +68,8 @@ namespace cnpy {
     char BigEndianTest();
     char map_type(const std::type_info& t);
     template<typename T> std::vector<char> create_npy_header(const std::vector<size_t>& shape, bool fortran_order=false);
-    void parse_npy_header(FILE* fp,size_t& word_size, std::vector<size_t>& shape, bool& fortran_order);
-    void parse_npy_header(unsigned char* buffer,size_t& word_size, std::vector<size_t>& shape, bool& fortran_order);
+    void parse_npy_header(FILE* fp,size_t& word_size, std::vector<size_t>& shape, bool& fortran_order, char& dtype);
+    void parse_npy_header(unsigned char* buffer,size_t& word_size, std::vector<size_t>& shape, bool& fortran_order, char &dtype);
     void parse_zip_footer(FILE* fp, uint16_t& nrecs, size_t& global_header_size, size_t& global_header_offset);
     npz_t npz_load(std::string fname);
     NpyArray npz_load(std::string fname, std::string varname);
@@ -98,7 +100,8 @@ namespace cnpy {
             //file exists. we need to append to it. read the header, modify the array size
             size_t word_size;
             bool fortran_order;
-            parse_npy_header(fp,word_size,true_data_shape,fortran_order);
+            char dtype;
+            parse_npy_header(fp,word_size,true_data_shape,fortran_order,dtype);
             assert(fortran_order == fortran_order_data);
 
             if(word_size != sizeof(T)) {

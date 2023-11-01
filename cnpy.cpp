@@ -59,7 +59,7 @@ template<> std::vector<char>& cnpy::operator+=(std::vector<char>& lhs, const cha
     return lhs;
 }
 
-void cnpy::parse_npy_header(unsigned char* buffer,size_t& word_size, std::vector<size_t>& shape, bool& fortran_order) {
+void cnpy::parse_npy_header(unsigned char* buffer,size_t& word_size, std::vector<size_t>& shape, bool& fortran_order, char& dtype) {
     //std::string magic_string(buffer,6);
     uint8_t major_version = *reinterpret_cast<uint8_t*>(buffer+6);
     uint8_t minor_version = *reinterpret_cast<uint8_t*>(buffer+7);
@@ -93,15 +93,15 @@ void cnpy::parse_npy_header(unsigned char* buffer,size_t& word_size, std::vector
     bool littleEndian = (header[loc1] == '<' || header[loc1] == '|' ? true : false);
     assert(littleEndian);
 
-    //char type = header[loc1+1];
-    //assert(type == map_type(T));
+    dtype = header[loc1+1];
+    //assert(dtype == map_type(T));
 
     std::string str_ws = header.substr(loc1+2);
     loc2 = str_ws.find("'");
     word_size = atoi(str_ws.substr(0,loc2).c_str());
 }
 
-void cnpy::parse_npy_header(FILE* fp, size_t& word_size, std::vector<size_t>& shape, bool& fortran_order) {
+void cnpy::parse_npy_header(FILE* fp, size_t& word_size, std::vector<size_t>& shape, bool& fortran_order, char& dtype) {
     char buffer[256];
     size_t res = fread(buffer,sizeof(char),11,fp);
     if(res != 11)
@@ -144,8 +144,8 @@ void cnpy::parse_npy_header(FILE* fp, size_t& word_size, std::vector<size_t>& sh
     bool littleEndian = (header[loc1] == '<' || header[loc1] == '|' ? true : false);
     assert(littleEndian);
 
-    //char type = header[loc1+1];
-    //assert(type == map_type(T));
+    dtype = header[loc1+1];
+    //assert(dtype == map_type(T));
 
     std::string str_ws = header.substr(loc1+2);
     loc2 = str_ws.find("'");
@@ -179,9 +179,10 @@ cnpy::NpyArray load_the_npy_file(FILE* fp) {
     std::vector<size_t> shape;
     size_t word_size;
     bool fortran_order;
-    cnpy::parse_npy_header(fp,word_size,shape,fortran_order);
+    char dtype;
+    cnpy::parse_npy_header(fp,word_size,shape,fortran_order,dtype);
 
-    cnpy::NpyArray arr(shape, word_size, fortran_order);
+    cnpy::NpyArray arr(shape, word_size, fortran_order, dtype);
     size_t nread = fread(arr.data<char>(),1,arr.num_bytes(),fp);
     if(nread != arr.num_bytes())
         throw std::runtime_error("load_the_npy_file: failed fread");
@@ -192,8 +193,9 @@ cnpy::NpyArray load_the_npy_shape(FILE* fp) {
     std::vector<size_t> shape;
     size_t word_size;
     bool fortran_order;
-    cnpy::parse_npy_header(fp,word_size,shape,fortran_order);
-    cnpy::NpyArray arr(shape, word_size, fortran_order);
+    char dtype;
+    cnpy::parse_npy_header(fp,word_size,shape,fortran_order, dtype);
+    cnpy::NpyArray arr(shape, word_size, fortran_order, dtype);
     return arr;
 }
 
@@ -226,9 +228,10 @@ cnpy::NpyArray load_the_npz_shape(FILE* fp, uint32_t compr_bytes, uint32_t uncom
     std::vector<size_t> shape;
     size_t word_size;
     bool fortran_order;
-    cnpy::parse_npy_header(&buffer_uncompr[0],word_size,shape,fortran_order);
+    char dtype;
+    cnpy::parse_npy_header(&buffer_uncompr[0],word_size,shape,fortran_order, dtype);
 
-    cnpy::NpyArray array(shape, word_size, fortran_order);
+    cnpy::NpyArray array(shape, word_size, fortran_order, dtype);
     return array;
 }
 
@@ -261,9 +264,10 @@ cnpy::NpyArray load_the_npz_array(FILE* fp, uint32_t compr_bytes, uint32_t uncom
     std::vector<size_t> shape;
     size_t word_size;
     bool fortran_order;
-    cnpy::parse_npy_header(&buffer_uncompr[0],word_size,shape,fortran_order);
+    char dtype;
+    cnpy::parse_npy_header(&buffer_uncompr[0],word_size,shape,fortran_order,dtype);
 
-    cnpy::NpyArray array(shape, word_size, fortran_order);
+    cnpy::NpyArray array(shape, word_size, fortran_order, dtype);
 
     size_t offset = uncompr_bytes - array.num_bytes();
     memcpy(array.data<unsigned char>(),&buffer_uncompr[0]+offset,array.num_bytes());
